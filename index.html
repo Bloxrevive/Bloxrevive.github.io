@@ -1,1 +1,238 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Roblox</title><style>*{box-sizing:border-box;margin:0;padding:0;font-family:Gotham,"Helvetica Neue",Helvetica,Arial,sans-serif}body{background:#121212;color:#fff;display:flex;height:100vh;overflow:hidden}.sidebar{width:220px;background:#191b1d;border-right:1px solid #2d2f31;display:flex;flex-direction:column;padding:20px 12px;gap:8px}.sidebar-logo{font-size:20px;font-weight:800;text-transform:lowercase;padding:0 12px 16px;letter-spacing:1px}.nav-item{display:flex;align-items:center;gap:14px;padding:12px;border-radius:8px;cursor:pointer;color:#b4b4b4;font-size:14px;font-weight:600;text-decoration:none;transition:background .2s,color .2s}.nav-item svg{width:20px;height:20px;fill:currentColor}.nav-item:hover,.nav-item.active{background:#232527;color:#fff}.content{flex:1;background:#121212;display:flex;justify-content:center;align-items:center;font-size:24px;font-weight:700}</style></head><body><div class="sidebar"><div class="sidebar-logo">roblox</div><a href="#" class="nav-item active"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Home</a><a href="#" class="nav-item"><svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>Avatar</a><a href="#" class="nav-item"><svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>Settings</a></div><div class="content">Home Screen</div></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bloxrevive</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: #121212; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow-x: hidden; }
+        .view { display: none; width: 100%; height: 100vh; justify-content: center; align-items: center; flex-direction: column; position: absolute; top: 0; left: 0; }
+        .active { display: flex; }
+        .container { background: rgba(18, 18, 18, 0.95); padding: 36px 32px; border-radius: 16px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.8); width: 100%; max-width: 420px; display: flex; flex-direction: column; align-items: center; border: 1px solid rgba(255, 255, 255, 0.08); }
+        .logo { font-size: 32px; font-weight: 900; letter-spacing: 2px; margin-bottom: 20px; text-transform: uppercase; color: #fff; }
+        h2 { font-size: 15px; font-weight: 700; margin-bottom: 20px; text-align: center; color: #e0e0e0; }
+        .form-group { width: 100%; margin-bottom: 16px; }
+        label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #999; }
+        input[type="text"], input[type="password"] { width: 100%; background: #242424; border: 1px solid #333; color: #fff; padding: 12px; border-radius: 8px; font-size: 14px; outline: none; }
+        .cookie-box { background: #1a1a1a; border: 1px solid #333; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 12px; color: #bbb; text-align: center; width: 100%; }
+        .error-msg { color: #ff4d4d; font-size: 12px; margin-bottom: 12px; text-align: center; display: none; width: 100%; line-height: 1.4; }
+        .btn { width: 100%; background: #e0e0e0; color: #121212; border: none; padding: 14px; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 6px; }
+        .btn:hover { background: #fff; }
+        .nav-bar { position: absolute; top: 0; width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 20px 40px; background: #181818; border-bottom: 1px solid #222; }
+        canvas { width: 300px; height: 300px; background: #181818; border-radius: 12px; }
+    </style>
+</head>
+<body>
+
+    <div id="signup-view" class="view">
+        <div class="container">
+            <div class="logo">Bloxrevive</div>
+            <h2>SIGN UP AND START HAVING FUN!</h2>
+            <div class="form-group">
+                <label>Username (3-20 chars, letters, numbers, max 1 underscore)</label>
+                <input type="text" id="su-user" placeholder="Username">
+            </div>
+            <div class="form-group">
+                <label>Password (at least 8 characters)</label>
+                <input type="password" id="su-pass" placeholder="Password">
+            </div>
+            <div class="cookie-box">
+                <label style="color: #bbb; cursor: pointer;">
+                    <input type="checkbox" id="su-cookie-check" style="margin-right: 6px;"> Accept required security cookies to proceed
+                </label>
+            </div>
+            <div id="su-error" class="error-msg"></div>
+            <button class="btn" onclick="handleSignup()">Sign Up</button>
+        </div>
+    </div>
+
+    <div id="home-view" class="view">
+        <div class="nav-bar">
+            <h3>Bloxrevive Home</h3>
+            <div>
+                <button class="btn" style="width:auto; padding:8px 16px; margin:0; display:inline-block;" onclick="navTo('/my/avatar')">Avatar</button>
+                <button class="btn" style="width:auto; padding:8px 16px; margin:0; display:inline-block;" onclick="navTo('/settings')">Settings</button>
+            </div>
+        </div>
+        <h1>Welcome to Bloxrevive Home, Twin!</h1>
+    </div>
+
+    <div id="avatar-view" class="view">
+        <div class="nav-bar">
+            <h3>Avatar Editor</h3>
+            <button class="btn" style="width:auto; padding:8px 16px; margin:0;" onclick="navTo('/home')">Home</button>
+        </div>
+        <canvas id="avatarCanvas"></canvas>
+    </div>
+
+    <div id="settings-view" class="view">
+        <div class="nav-bar">
+            <h3>Settings</h3>
+            <button class="btn" style="width:auto; padding:8px 16px; margin:0;" onclick="navTo('/home')">Home</button>
+        </div>
+        <div class="container">
+            <h2>Change Password</h2>
+            <div class="form-group">
+                <label>New Password (at least 8 characters)</label>
+                <input type="password" id="set-pass" placeholder="New Password">
+            </div>
+            <div id="set-error" class="error-msg"></div>
+            <button class="btn" onclick="updatePassword()">Update Password</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        function getCleanPath() {
+            let p = window.location.pathname;
+            if (p.endsWith('/index.html')) p = p.replace('/index.html', '');
+            return p || '/';
+        }
+
+        function router() {
+            let p = getCleanPath();
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            
+            if (p.includes('/CreateAccount')) {
+                document.getElementById('signup-view').classList.add('active');
+            } else if (p.includes('/my/avatar')) {
+                document.getElementById('avatar-view').classList.add('active');
+                init3D();
+            } else if (p.includes('/settings')) {
+                document.getElementById('settings-view').classList.add('active');
+            } else {
+                document.getElementById('home-view').classList.add('active');
+            }
+        }
+
+        function navTo(path) {
+            history.pushState({}, '', path);
+            router();
+        }
+
+        window.onpopstate = router;
+
+        function genCookieString() {
+            return 'br_cookie_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+        }
+
+        function validateUsername(u) {
+            if (u.length < 3 || u.length > 20) {
+                return "Error: Invalid username length. Fix: Username must be between 3 and 20 characters long.";
+            }
+            if (!/^[a-zA-Z0-9_]*$/.test(u)) {
+                return "Error: Invalid characters. Fix: Usernames can only contain letters, numbers, and underscores.";
+            }
+            let underscores = (u.match(/_/g) || []).length;
+            if (underscores > 1) {
+                return "Error: Too many underscores. Fix: Roblox usernames can contain at most one underscore.";
+            }
+            return null;
+        }
+
+        function validatePassword(p) {
+            if (p.length < 8) {
+                return "Error: Password too short. Fix: Password must be at least 8 characters long.";
+            }
+            return null;
+        }
+
+        function handleSignup() {
+            let u = document.getElementById('su-user').value.trim();
+            let p = document.getElementById('su-pass').value;
+            let c = document.getElementById('su-cookie-check').checked;
+            let e = document.getElementById('su-error');
+
+            e.style.display = 'none';
+
+            if (!c) {
+                e.style.display = 'block';
+                e.innerText = 'Error: Cookies not accepted. Fix: You must check the cookie agreement box to let us store your local session string.';
+                return;
+            }
+
+            let uErr = validateUsername(u);
+            if (uErr) {
+                e.style.display = 'block';
+                e.innerText = uErr;
+                return;
+            }
+
+            let pErr = validatePassword(p);
+            if (pErr) {
+                e.style.display = 'block';
+                e.innerText = pErr;
+                return;
+            }
+
+            let userKey = 'user_cookies_' + u;
+            let token = genCookieString();
+            localStorage.setItem(userKey, token);
+            localStorage.setItem('br_current_user', u);
+            localStorage.setItem('br_pass', p);
+
+            navTo('/home');
+        }
+
+        function updatePassword() {
+            let np = document.getElementById('set-pass').value;
+            let curUser = localStorage.getItem('br_current_user');
+            let e = document.getElementById('set-error');
+
+            e.style.display = 'none';
+
+            let pErr = validatePassword(np);
+            if (pErr) {
+                e.style.display = 'block';
+                e.innerText = pErr;
+                return;
+            }
+
+            localStorage.setItem('br_pass', np);
+
+            if (curUser) {
+                let newToken = genCookieString();
+                localStorage.setItem('user_cookies_' + curUser, newToken);
+                alert('Password updated! Your secure cookie string has been automatically updated and saved exclusively for your user profile.');
+                navTo('/home');
+            } else {
+                alert('Password updated!');
+                navTo('/home');
+            }
+        }
+
+        let renderer, scene, camera, cube;
+        function init3D() {
+            if (renderer) return;
+            let canvas = document.getElementById('avatarCanvas');
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true });
+            renderer.setSize(300, 300);
+
+            let geom = new THREE.BoxGeometry(1.5, 2, 1);
+            let mat = new THREE.MeshBasicMaterial({ color: 0x00ffcc, wireframe: true });
+            cube = new THREE.Mesh(geom, mat);
+            scene.add(cube);
+
+            camera.position.z = 5;
+
+            function animate() {
+                requestAnimationFrame(animate);
+                cube.rotation.x += 0.01;
+                cube.rotation.y += 0.01;
+                renderer.render(scene, camera);
+            }
+            animate();
+        }
+
+        let currentPath = getCleanPath();
+        if (currentPath === '/' || currentPath === '') {
+            history.replaceState({}, '', '/CreateAccount');
+        }
+        router();
+    </script>
+</body>
+      </html>
+  
